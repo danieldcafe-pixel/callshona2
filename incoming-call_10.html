@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Incoming Call</title>
+<style>
+  :root{
+    --bg-dark: #0b0b10;
+    --card-blur: rgba(20,20,26,0.55);
+    --green: #34c94b;
+    --red: #ff3b30;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255,255,255,0.65);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width:100%; height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .screen {
+    position:relative;
+    width:100%;
+    height:100vh;
+    height:100dvh;
+    background:
+      radial-gradient(circle at 50% 15%, rgba(90,70,140,0.35), transparent 60%),
+      linear-gradient(180deg, #1c1a24 0%, #0b0b10 55%, #050507 100%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    color:var(--text-primary);
+    overflow:hidden;
+  }
+
+  /* fondo con blur simulando el avatar de fondo desenfocado */
+  .bg-blur{
+    position:absolute; inset:0;
+    background-image: radial-gradient(circle at 50% 30%, #4a4458 0%, #201e28 45%, #0a0a0d 100%);
+    filter: blur(40px) saturate(1.1) brightness(0.9);
+    transform: scale(1.2);
+    z-index:0;
+  }
+
+  .top-info{
+    position:relative;
+    z-index:2;
+    margin-top: 8vh;
+    text-align:center;
+  }
+
+  .call-label{
+    font-size:15px;
+    font-weight:500;
+    color:var(--text-secondary);
+    letter-spacing:0.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+  }
+
+  .call-label .dots span{
+    opacity:0;
+    animation: dotFade 1.4s infinite;
+  }
+  .call-label .dots span:nth-child(1){ animation-delay:0s; }
+  .call-label .dots span:nth-child(2){ animation-delay:0.2s; }
+  .call-label .dots span:nth-child(3){ animation-delay:0.4s; }
+
+  @keyframes dotFade{
+    0%, 100% { opacity:0; }
+    50% { opacity:1; }
+  }
+
+  .caller-name{
+    margin-top:10px;
+    font-size:34px;
+    font-weight:600;
+    letter-spacing:0.3px;
+  }
+
+  .caller-sub{
+    margin-top:6px;
+    font-size:16px;
+    color:var(--text-secondary);
+    font-weight:400;
+  }
+
+  .avatar-wrap{
+    position:relative;
+    z-index:2;
+    margin-top:6vh;
+    width:150px;
+    height:150px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .avatar-pulse{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:rgba(255,255,255,0.08);
+    animation: pulseRing 2s ease-out infinite;
+  }
+  .avatar-pulse.delay{
+    animation-delay:0.6s;
+  }
+
+  @keyframes pulseRing{
+    0% { transform:scale(0.95); opacity:0.9; }
+    70% { transform:scale(1.35); opacity:0; }
+    100% { transform:scale(1.35); opacity:0; }
+  }
+
+  .avatar{
+    width:140px;
+    height:140px;
+    border-radius:50%;
+    background: linear-gradient(150deg, #55506a, #2c2a36);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:52px;
+    font-weight:600;
+    color:rgba(255,255,255,0.85);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06);
+    animation: breathe 2.4s ease-in-out infinite;
+    z-index:1;
+  }
+
+  @keyframes breathe{
+    0%,100% { transform:scale(1); }
+    50% { transform:scale(1.035); }
+  }
+
+  .avatar svg{ width:60%; height:60%; opacity:0.55; }
+
+  .spacer{ flex:1; }
+
+  .actions{
+    position:relative;
+    z-index:2;
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    padding: 0 46px max(46px, env(safe-area-inset-bottom)) 46px;
+  }
+
+  .action-col{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+
+  .action-label{
+    font-size:13px;
+    color:var(--text-secondary);
+    font-weight:500;
+  }
+
+  .btn{
+    width:72px;
+    height:72px;
+    border-radius:50%;
+    border:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    transition: transform 0.15s ease;
+  }
+  .btn:active{ transform:scale(0.92); }
+
+  .btn.decline{ background: var(--red); }
+  .btn.accept{ background: var(--green); animation: acceptGlow 1.4s ease-in-out infinite; }
+
+  @keyframes acceptGlow{
+    0%,100% { box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 0 rgba(52,201,75,0.5); }
+    50% { box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 10px rgba(52,201,75,0); }
+  }
+
+  .btn svg{ width:30px; height:30px; fill:#fff; }
+
+  /* vibración sutil del teléfono, como cuando vibra de verdad */
+  .screen.vibrating{
+    animation: vibrate 0.28s infinite;
+  }
+
+  @keyframes vibrate{
+    0%   { transform: translate(0,0) rotate(0deg); }
+    20%  { transform: translate(-1px, 1px) rotate(-0.15deg); }
+    40%  { transform: translate(1px, -1px) rotate(0.15deg); }
+    60%  { transform: translate(-1px, -1px) rotate(-0.1deg); }
+    80%  { transform: translate(1px, 1px) rotate(0.1deg); }
+    100% { transform: translate(0,0) rotate(0deg); }
+  }
+
+  .remind-row{
+    position:relative;
+    z-index:2;
+    display:flex;
+    justify-content:center;
+    padding-bottom: 14px;
+  }
+  .remind-row button{
+    background:none;
+    border:none;
+    color:var(--text-secondary);
+    font-size:14px;
+    padding:10px 18px;
+  }
+
+  .sound-toggle{
+    position:absolute;
+    top: max(16px, env(safe-area-inset-top));
+    right:16px;
+    z-index:5;
+    background:rgba(255,255,255,0.12);
+    border:none;
+    color:#fff;
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:20px;
+  }
+
+  .reset-toggle{
+    position:absolute;
+    top: max(16px, env(safe-area-inset-top));
+    left:16px;
+    z-index:20;
+    width:44px;
+    height:44px;
+    background:transparent;
+    border:none;
+    color:transparent;
+    opacity:0;
+  }
+
+  .change-photo-btn{
+    position:absolute;
+    z-index:20;
+    top: max(16px, env(safe-area-inset-top));
+    left:50%;
+    transform: translateX(-50%);
+    width:70px;
+    height:44px;
+    background:transparent;
+    border:none;
+    color:transparent;
+    opacity:0;
+  }
+
+  /* ---------- Pantalla de llamada activa ---------- */
+  .in-call{
+    position:fixed;
+    inset:0;
+    z-index:10;
+    display:flex;
+    flex-direction:column;
+    color:#fff;
+    opacity:0;
+    pointer-events:none;
+    transform: scale(1.04);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+  }
+  .in-call.show{
+    opacity:1;
+    pointer-events:auto;
+    transform: scale(1);
+  }
+
+  .remote-video{
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(circle at 50% 38%, #57506e 0%, #2a2734 45%, #0c0b10 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  .remote-video .placeholder-icon{
+    width:34%;
+    max-width:170px;
+    opacity:0.35;
+  }
+  .remote-video .placeholder-icon svg{ width:100%; height:100%; fill:#fff; }
+
+  .remote-video::after{
+    /* leve viñeta para dar sensación de cámara real */
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(circle at 50% 45%, transparent 40%, rgba(0,0,0,0.45) 100%);
+  }
+
+  .in-call-top{
+    position:relative;
+    z-index:2;
+    text-align:center;
+    padding-top: max(22px, env(safe-area-inset-top));
+  }
+  .in-call-name{
+    font-size:19px;
+    font-weight:600;
+  }
+  .in-call-timer{
+    margin-top:4px;
+    font-size:14px;
+    color:rgba(255,255,255,0.75);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .self-view{
+    position:absolute;
+    z-index:3;
+    top: max(84px, calc(env(safe-area-inset-top) + 70px));
+    right:18px;
+    width:92px;
+    height:130px;
+    border-radius:14px;
+    background: linear-gradient(160deg, #3c3948, #1c1a22);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .self-view svg{ width:38%; height:38%; fill:rgba(255,255,255,0.4); }
+  .self-view video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transform: scaleX(-1); /* efecto espejo, como una autovista real */
+    display:none;
+  }
+  .self-view.has-camera svg{ display:none; }
+  .self-view.has-camera video{ display:block; }
+
+  .in-call-spacer{ flex:1; }
+
+  .in-call-controls{
+    position:relative;
+    z-index:2;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:22px;
+    padding-bottom: max(30px, env(safe-area-inset-bottom));
+  }
+
+  .ctrl-btn{
+    width:58px;
+    height:58px;
+    border-radius:50%;
+    border:none;
+    background:rgba(255,255,255,0.16);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: transform 0.15s ease, background 0.2s ease;
+  }
+  .ctrl-btn:active{ transform:scale(0.9); }
+  .ctrl-btn.active{ background:#ffffff; }
+  .ctrl-btn.active svg{ fill:#0b0b10; }
+  .ctrl-btn svg{ width:24px; height:24px; fill:#fff; }
+
+  .ctrl-btn.end-call{
+    background: var(--red);
+    width:64px;
+    height:64px;
+  }
+  /* ---------- Modal de ajuste de foto (pan/zoom) ---------- */
+  .adjust-overlay{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    background:rgba(0,0,0,0.75);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:18px;
+  }
+  .adjust-overlay.show{ display:flex; }
+
+  .adjust-circle{
+    width:220px;
+    height:220px;
+    border-radius:50%;
+    overflow:hidden;
+    background:#222;
+    position:relative;
+    touch-action:none;
+    box-shadow:0 0 0 4px rgba(255,255,255,0.2);
+  }
+  .adjust-circle img{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:220px;
+    height:220px;
+    object-fit:cover;
+    transform-origin:center center;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
+
+  .adjust-controls{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    width:220px;
+  }
+  .adjust-controls input[type="range"]{
+    width:100%;
+  }
+  .adjust-buttons{
+    display:flex;
+    gap:14px;
+  }
+  .adjust-buttons button{
+    padding:10px 20px;
+    border-radius:20px;
+    border:none;
+    font-size:14px;
+    font-weight:600;
+  }
+  .adjust-buttons .save-btn{ background:var(--green); color:#fff; }
+  .adjust-buttons .cancel-btn{ background:rgba(255,255,255,0.2); color:#fff; }
+
+  /* ---------- Efecto de pantalla apagándose al rechazar ---------- */
+  /* ---------- Estado de llamada rechazada (se queda fijo en pantalla) ---------- */
+  .action-col, .remind-row{
+    transition: opacity 0.3s ease;
+  }
+  .screen.declined .action-col,
+  .screen.declined .remind-row{
+    opacity:0;
+    pointer-events:none;
+  }
+  .screen.declined .avatar-pulse{
+    animation:none;
+    opacity:0;
+  }
+  .screen.declined .avatar{
+    filter: grayscale(0.4) brightness(0.7);
+  }
+  .declined-label{
+    display:none;
+    color:var(--red);
+    font-weight:600;
+  }
+  .screen.declined .declined-label{ display:flex; }
+  .screen.declined .call-label .live-label,
+  .screen.declined .call-label .dots{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="screen vibrating" id="screen">
+  <div class="bg-blur"></div>
+
+  <button class="reset-toggle" onclick="resetScene()" aria-label="Retake"></button>
+  <button class="sound-toggle" id="soundBtn" onclick="toggleSound()">🔈 sound</button>
+
+  <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
+
+  <div class="top-info">
+    <div class="call-label"><span class="live-label">Calling</span><span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="declined-label">Call Declined</span></div>
+    <div class="caller-name" onclick="document.getElementById('photoInput').click()" style="cursor:pointer;">MOM</div>
+    <div class="caller-sub">mobile</div>
+  </div>
+
+  <div class="avatar-wrap">
+    <div class="avatar-pulse"></div>
+    <div class="avatar-pulse delay"></div>
+    <div class="avatar" id="avatarPhoto">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.5 0-10.4 1.7-10.4 5.2v1.2c0 .7.6 1.2 1.2 1.2h18.4c.7 0 1.2-.6 1.2-1.2v-1.2c0-3.5-6.9-5.2-10.4-5.2z"/></svg>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="actions">
+    <div class="action-col">
+      <button class="btn decline" onclick="handleAction('decline')">
+        <svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.1.3-4.5.8v3.1c0 .5-.3 1-.8 1.2-1 .5-2 1.1-2.8 1.9-.2.2-.5.3-.8.3-.3 0-.6-.1-.8-.3L.4 14.3c-.2-.2-.3-.5-.3-.8 0-.3.1-.6.3-.8C3.7 9.2 7.7 7.5 12 7.5s8.3 1.7 11.6 5.2c.2.2.3.5.3.8 0 .3-.1.6-.3.8l-1.7 1.7c-.2.2-.5.3-.8.3-.3 0-.6-.1-.8-.3-.8-.8-1.8-1.4-2.8-1.9-.5-.2-.8-.7-.8-1.2v-3.1C15.1 9.3 13.6 9 12 9z" transform="rotate(135 12 12)"/></svg>
+      </button>
+      <span class="action-label">Decline</span>
+    </div>
+
+    <div class="action-col">
+      <button class="btn accept" onclick="handleAction('accept')">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      </button>
+      <span class="action-label">Accept</span>
+    </div>
+  </div>
+
+  <div class="remind-row">
+    <button onclick="handleAction('remind')">Remind Me / Message</button>
+  </div>
+</div>
+
+<!-- Active call screen: shown when Accept is pressed -->
+<div class="in-call" id="inCallScreen">
+  <div class="remote-video" id="remoteVideo">
+    <!-- caller placeholder, replaced with the chosen photo -->
+    <div class="placeholder-icon" id="remotePlaceholderIcon">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.5 0-10.4 1.7-10.4 5.2v1.2c0 .7.6 1.2 1.2 1.2h18.4c.7 0 1.2-.6 1.2-1.2v-1.2c0-3.5-6.9-5.2-10.4-5.2z"/></svg>
+    </div>
+  </div>
+
+  <div class="self-view" id="selfView">
+    <video id="selfVideo" autoplay muted playsinline></video>
+    <svg id="selfPlaceholderIcon" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.5 0-10.4 1.7-10.4 5.2v1.2c0 .7.6 1.2 1.2 1.2h18.4c.7 0 1.2-.6 1.2-1.2v-1.2c0-3.5-6.9-5.2-10.4-5.2z"/></svg>
+  </div>
+
+  <div class="in-call-top">
+    <div class="in-call-name">MOM</div>
+    <div class="in-call-timer" id="callTimer">00:00</div>
+  </div>
+
+  <div class="in-call-spacer"></div>
+
+  <div class="in-call-controls">
+    <button class="ctrl-btn" id="muteBtn" onclick="toggleCtrl('muteBtn')">
+      <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-3.07A7 7 0 0 0 19 11h-2z"/></svg>
+    </button>
+    <button class="ctrl-btn end-call" onclick="endCall()">
+      <svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.1.3-4.5.8v3.1c0 .5-.3 1-.8 1.2-1 .5-2 1.1-2.8 1.9-.2.2-.5.3-.8.3-.3 0-.6-.1-.8-.3L.4 14.3c-.2-.2-.3-.5-.3-.8 0-.3.1-.6.3-.8C3.7 9.2 7.7 7.5 12 7.5s8.3 1.7 11.6 5.2c.2.2.3.5.3.8 0 .3-.1.6-.3.8l-1.7 1.7c-.2.2-.5.3-.8.3-.3 0-.6-.1-.8-.3-.8-.8-1.8-1.4-2.8-1.9-.5-.2-.8-.7-.8-1.2v-3.1C15.1 9.3 13.6 9 12 9z" transform="rotate(135 12 12)"/></svg>
+    </button>
+    <button class="ctrl-btn" id="camBtn" onclick="toggleCtrl('camBtn')">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Modal para ajustar (mover/zoom) la foto elegida antes de aplicarla -->
+<div class="adjust-overlay" id="adjustOverlay">
+  <div class="adjust-circle" id="adjustCircle">
+    <img id="adjustImg" src="" alt="">
+  </div>
+  <div class="adjust-controls">
+    <input type="range" id="zoomRange" min="100" max="300" value="100">
+    <div class="adjust-buttons">
+      <button class="cancel-btn" onclick="cancelAdjust()">Cancel</button>
+      <button class="save-btn" onclick="saveAdjust()">Save Photo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tono sintetizado simple (no reproduce ringtones con copyright), tipo "beep" de llamada
+  let audioCtx = null;
+  let ringInterval = null;
+  let soundOn = false;
+
+  function playBeepPair(){
+    if(!audioCtx) return;
+    const now = audioCtx.currentTime;
+    [0, 0.35].forEach(offset=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 480;
+      gain.gain.setValueAtTime(0, now+offset);
+      gain.gain.linearRampToValueAtTime(0.15, now+offset+0.02);
+      gain.gain.linearRampToValueAtTime(0, now+offset+0.3);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now+offset);
+      osc.stop(now+offset+0.32);
+    });
+  }
+
+  function toggleSound(){
+    soundOn = !soundOn;
+    const btn = document.getElementById('soundBtn');
+    if(soundOn){
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      btn.textContent = '🔊 sound';
+      playBeepPair();
+      ringInterval = setInterval(playBeepPair, 2200);
+    } else {
+      btn.textContent = '🔈 sound';
+      clearInterval(ringInterval);
+    }
+  }
+
+  function handlePhotoSelect(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      openAdjustModal(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- Ajuste de foto (arrastrar para mover, slider para zoom) ----------
+  let adjustState = { x: 0, y: 0, scale: 1, dragging: false, startX: 0, startY: 0 };
+
+  function openAdjustModal(dataUrl){
+    const img = document.getElementById('adjustImg');
+    img.src = dataUrl;
+    adjustState = { x: 0, y: 0, scale: 1, dragging: false, startX: 0, startY: 0 };
+    document.getElementById('zoomRange').value = 100;
+    img.style.transform = 'translate(-50%, -50%) scale(1)';
+    document.getElementById('adjustOverlay').classList.add('show');
+  }
+
+  function cancelAdjust(){
+    document.getElementById('adjustOverlay').classList.remove('show');
+  }
+
+  function applyAdjustTransform(){
+    const img = document.getElementById('adjustImg');
+    img.style.transform =
+      `translate(calc(-50% + ${adjustState.x}px), calc(-50% + ${adjustState.y}px)) scale(${adjustState.scale})`;
+  }
+
+  function saveAdjust(){
+    const dataUrl = document.getElementById('adjustImg').src;
+
+    // Traducimos la posición/zoom del círculo de ajuste (220px) a background-position/size
+    const circleSize = 220;
+    const percentX = 50 - (adjustState.x / circleSize) * 100;
+    const percentY = 50 - (adjustState.y / circleSize) * 100;
+    const sizePercent = adjustState.scale * 100;
+
+    const avatar = document.getElementById('avatarPhoto');
+    avatar.style.backgroundImage = `url(${dataUrl})`;
+    avatar.style.backgroundSize = sizePercent + '%';
+    avatar.style.backgroundPosition = `${percentX}% ${percentY}%`;
+    const avatarIcon = avatar.querySelector('svg');
+    if(avatarIcon) avatarIcon.style.display = 'none';
+
+    const remote = document.getElementById('remoteVideo');
+    remote.style.backgroundImage = `url(${dataUrl})`;
+    remote.style.backgroundSize = sizePercent + '%';
+    remote.style.backgroundPosition = `${percentX}% ${percentY}%`;
+    const remoteIcon = document.getElementById('remotePlaceholderIcon');
+    if(remoteIcon) remoteIcon.style.display = 'none';
+
+    document.getElementById('adjustOverlay').classList.remove('show');
+  }
+
+  (function setupAdjustGestures(){
+    const circle = document.getElementById('adjustCircle');
+
+    function pointerDown(x, y){
+      adjustState.dragging = true;
+      adjustState.startX = x - adjustState.x;
+      adjustState.startY = y - adjustState.y;
+    }
+    function pointerMove(x, y){
+      if(!adjustState.dragging) return;
+      adjustState.x = x - adjustState.startX;
+      adjustState.y = y - adjustState.startY;
+      applyAdjustTransform();
+    }
+    function pointerUp(){ adjustState.dragging = false; }
+
+    circle.addEventListener('mousedown', e => pointerDown(e.clientX, e.clientY));
+    window.addEventListener('mousemove', e => pointerMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', pointerUp);
+
+    circle.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      pointerDown(t.clientX, t.clientY);
+    }, { passive: true });
+    circle.addEventListener('touchmove', e => {
+      const t = e.touches[0];
+      pointerMove(t.clientX, t.clientY);
+    }, { passive: true });
+    circle.addEventListener('touchend', pointerUp);
+
+    document.getElementById('zoomRange').addEventListener('input', e => {
+      adjustState.scale = e.target.value / 100;
+      applyAdjustTransform();
+    });
+  })();
+
+  let callSeconds = 0;
+  let callTimerInterval = null;
+
+  function startCallTimer(){
+    callSeconds = 0;
+    const el = document.getElementById('callTimer');
+    el.textContent = '00:00';
+    callTimerInterval = setInterval(()=>{
+      callSeconds++;
+      const m = String(Math.floor(callSeconds/60)).padStart(2,'0');
+      const s = String(callSeconds%60).padStart(2,'0');
+      el.textContent = m + ':' + s;
+    }, 1000);
+  }
+
+  let cameraStream = null;
+
+  async function startCamera(){
+    try{
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const video = document.getElementById('selfVideo');
+      video.srcObject = cameraStream;
+      document.getElementById('selfView').classList.add('has-camera');
+    } catch(err){
+      // Permission denied or no camera available: placeholder icon stays
+      console.log('Could not start camera:', err.message);
+    }
+  }
+
+  function stopCamera(){
+    if(cameraStream){
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    document.getElementById('selfView').classList.remove('has-camera');
+  }
+
+  function toggleCtrl(id){
+    const btn = document.getElementById(id);
+    btn.classList.toggle('active');
+
+    if(id === 'camBtn' && cameraStream){
+      const enabled = btn.classList.contains('active');
+      // 'active' on camBtn means camera is OFF (like the crossed-out camera icon)
+      cameraStream.getVideoTracks().forEach(track => track.enabled = !enabled);
+    }
+  }
+
+  function endCall(){
+    clearInterval(callTimerInterval);
+    document.getElementById('inCallScreen').classList.remove('show');
+    stopCamera();
+    // Hook: go back to a home screen, close the tab, or whatever the scene needs.
+  }
+
+  function resetScene(){
+    // Resets everything to redo the take without reloading the page
+    clearInterval(callTimerInterval);
+    clearInterval(ringInterval);
+    stopCamera();
+
+    document.getElementById('inCallScreen').classList.remove('show');
+    document.getElementById('screen').classList.remove('declined');
+    document.getElementById('screen').classList.add('vibrating');
+
+    callSeconds = 0;
+    document.getElementById('callTimer').textContent = '00:00';
+
+    document.getElementById('muteBtn').classList.remove('active');
+    document.getElementById('camBtn').classList.remove('active');
+
+    soundOn = false;
+    document.getElementById('soundBtn').textContent = '🔈 sound';
+
+    startAutoDeclineTimer();
+  }
+
+  function handleAction(type){
+    clearInterval(ringInterval);
+    clearTimeout(autoDeclineTimeout);
+    document.getElementById('screen').classList.remove('vibrating');
+
+    if(type === 'accept'){
+      document.getElementById('inCallScreen').classList.add('show');
+      startCallTimer();
+      startCamera();
+      return;
+    }
+
+    if(type === 'decline'){
+      document.getElementById('screen').classList.add('declined');
+      return;
+    }
+
+    // Hook for 'remind': replace with whatever the scene needs.
+    console.log('Action:', type);
+  }
+
+  // Rechazo automático a los 10 segundos si nadie acepta ni rechaza antes
+  let autoDeclineTimeout = null;
+  function startAutoDeclineTimer(){
+    clearTimeout(autoDeclineTimeout);
+    autoDeclineTimeout = setTimeout(() => {
+      handleAction('decline');
+    }, 10000);
+  }
+  startAutoDeclineTimer();
+</script>
+
+</body>
+</html>
